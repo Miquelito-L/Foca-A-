@@ -12,6 +12,9 @@ import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
 import { DateRangeSelector, DateRange, getDefaultDateRange } from "@/components/ui/date-range-selector";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { sql } from "@/lib/neon"; 
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 interface Transaction {
   id: string;
@@ -76,35 +79,136 @@ export default function Dashboard() {
   const todayFormatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
 
   useEffect(() => {
-    // Simula uma busca de dados que retorna "vazio"
-    const loadEmptyData = () => {
-      setSummary({
-        finances: { 
-          balance: 0, 
-          income: 0, 
-          expenses: 0 
-        },
-        expensesByCategory: [],
-        recentTransactions: [],
-        health: { 
-          waterToday: 0, 
-          lastSleep: null 
-        },
-        academic: { 
-          totalDocs: 0, 
-          tagCounts: [] 
-        },
-        schedule: { 
-          upcomingEvents: 0, 
-          syncedEvents: 0, 
-          nextEvents: [] 
-        },
-        userName: "Usuário", // Nome genérico
-      });
-      setLoading(false);
-    };
+    let isMounted = true;
 
-    loadEmptyData();
+    async function fetchSummary() {
+      try {
+        setLoading(true);
+
+        // CORREÇÃO: Se não houver usuário, paramos mas desligamos o loading
+        if (!user) {
+            console.warn("Usuário não identificado no Dashboard.");
+            return;
+        }
+
+        const startDate = format(dateRange.from, "yyyy-MM-dd");
+        const endDate = format(dateRange.to, "yyyy-MM-dd");
+        const today = new Date().toISOString().split("T")[0];
+
+        // 1. FINANÇAS
+        const finances = await sql`
+          SELECT * FROM finances 
+          WHERE user_id = ${user.id} 
+          AND transaction_date >= ${startDate} 
+          AND transaction_date <= ${endDate}
+        `;
+
+        const income = finances
+          .filter((f: any) => f.type === 'income')
+          .reduce((acc: number, f: any) => acc + Number(f.amount), 0);
+        
+        const expenses = finances
+          .filter((f: any) => f.type === 'expense')
+          .reduce((acc: number, f: any) => acc + Number(f.amount), 0);
+
+        const categoryMap: Record<string, number> = {};
+        finances
+          .filter((f: any) => f.type === 'expense')
+          .forEach((f: any) => {
+            const cat = f.category || "Geral";
+            categoryMap[cat] = (categoryMap[cat] || 0) + Number(f.amount);
+          });
+          
+        const expensesByCategory = Object.entries(categoryMap)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+
+        const recentTransactions: Transaction[] = [...finances]
+          .sort((a: any, b: any) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+          .slice(0, 5)
+          .map((f: any) => ({
+            id: String(f.id),
+            type: f.type as "income" | "expense",
+            amount: Number(f.amount),
+            description: f.description,
+            category: f.category || "Geral",
+            transaction_date: f.transaction_date,
+          }));
+
+        // 2. SAÚDE
+        const healthData = await sql`
+          SELECT * FROM health 
+          WHERE user_id = ${user.id} 
+          AND calendario >= ${today}
+        `;
+
+        const waterToday = healthData
+          .filter((h: any) => h.category === "Agua")
+          .reduce((acc: number, h: any) => acc + Number(h.value), 0);
+
+        const sleepResult = await sql`
+          SELECT value FROM health 
+          WHERE user_id = ${user.id} 
+          AND category = 'Sono' 
+          ORDER BY calendario DESC 
+          LIMIT 1
+        `;
+        const lastSleep = sleepResult.length > 0 ? Number(sleepResult[0].value) : null;
+
+        // 3. ACADÊMICO
+        const academicDocs = await sql`
+          SELECT tags FROM academic WHERE user_id = ${user.id}
+        `;
+        
+        const totalDocs = academicDocs.length;
+        const tagMap: Record<string, number> = {};
+        academicDocs.forEach((doc: any) => {
+            if(doc.tags) tagMap[doc.tags] = (tagMap[doc.tags] || 0) + 1;
+        });
+        const tagCounts = Object.entries(tagMap).map(([tag, count]) => ({ tag, count }));
+
+        // 4. AGENDA
+        const now = new Date().toISOString();
+        const events = await sql`
+          SELECT * FROM agendamento 
+          WHERE user_id = ${user.id} 
+          AND start_time >= ${now} 
+          ORDER BY start_time ASC 
+          LIMIT 5
+        `;
+
+        if (isMounted) {
+          setSummary({
+            finances: { balance: income - expenses, income, expenses },
+            expensesByCategory,
+            recentTransactions,
+            health: { waterToday, lastSleep },
+            academic: { totalDocs, tagCounts },
+            schedule: { 
+              upcomingEvents: events.length, 
+              syncedEvents: events.filter((e: any) => e.google_event_id).length, 
+              nextEvents: events.map((e: any) => ({
+                  id: String(e.id),
+                  title: e.title,
+                  start_time: e.start_time,
+                  google_event_id: e.google_event_id
+              })) 
+            },
+            userName: user.name || "Usuário",
+          });
+        }
+
+      } catch (error) {
+        console.error("Erro ao buscar dados no Neon:", error);
+      } finally {
+        // CORREÇÃO: O loading é desligado SEMPRE, aconteça o que acontecer
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    fetchSummary();
+
+    return () => { isMounted = false; };
   }, [user, dateRange]);
 
   if (loading) {
@@ -115,6 +219,20 @@ export default function Dashboard() {
         </div>
       </DashboardLayout>
     );
+  }
+
+  // Se o usuário não estiver logado, mostra um botão para entrar
+  if (!user) {
+    return (
+        <DashboardLayout>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <h2 className="text-xl font-semibold">Sessão expirada ou não iniciada</h2>
+                <Link to="/auth">
+                    <Button>Fazer Login</Button>
+                </Link>
+            </div>
+        </DashboardLayout>
+    )
   }
 
   return (

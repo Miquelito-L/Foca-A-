@@ -3,7 +3,8 @@ import { ptBR } from "date-fns/locale";
 import { Calendar, Clock, Trash2, Cloud, CloudOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+// REMOVIDO: import { supabase } ...
+import { sql } from "@/lib/neon"; // ADICIONADO: Neon
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -39,21 +40,21 @@ export function EventsList({ events, onRefresh }: EventsListProps) {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from("agendamento")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      // ATUALIZADO PARA NEON (SQL)
+      await sql`
+        DELETE FROM agendamento 
+        WHERE id = ${id} 
+        AND user_id = ${user.id}
+      `;
 
       toast({ title: "Evento removido" });
       onRefresh();
     } catch (error: any) {
+      console.error("Erro ao deletar:", error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: error.message,
+        description: "Não foi possível remover o evento.",
       });
     }
   };
@@ -61,8 +62,9 @@ export function EventsList({ events, onRefresh }: EventsListProps) {
   return (
     <div className="space-y-3 max-h-96 overflow-y-auto">
       {events.map((event) => {
-        const startTime = parseISO(event.start_time);
-        const endTime = parseISO(event.end_time);
+        // Neon retorna data como string ISO ou Date object, garantimos conversão segura
+        const startTime = new Date(event.start_time);
+        const endTime = event.end_time ? new Date(event.end_time) : null;
         const isSynced = !!event.google_event_id;
 
         return (
@@ -81,8 +83,10 @@ export function EventsList({ events, onRefresh }: EventsListProps) {
                 <h4 className="truncate font-medium">{event.title}</h4>
                 <span
                   className={cn(
-                    "status-badge",
-                    isSynced ? "status-synced" : "status-pending"
+                    "status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                    isSynced 
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
+                      : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                   )}
                 >
                   {isSynced ? (
@@ -106,7 +110,8 @@ export function EventsList({ events, onRefresh }: EventsListProps) {
               <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 <span>
-                  {format(startTime, "HH:mm", { locale: ptBR })} - {format(endTime, "HH:mm", { locale: ptBR })}
+                  {format(startTime, "HH:mm", { locale: ptBR })}
+                  {endTime && <> - {format(endTime, "HH:mm", { locale: ptBR })}</>}
                 </span>
               </div>
             </div>

@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  // Removemos o componentTagger() do Lovable aqui
+  
   plugins: [react()].filter(Boolean),
   resolve: {
     alias: {

@@ -3,7 +3,8 @@ import { ptBR } from "date-fns/locale";
 import { FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+// REMOVIDO: import { supabase } ...
+import { sql } from "@/lib/neon"; // ADICIONADO: Neon
 import { useToast } from "@/hooks/use-toast";
 
 interface Document {
@@ -50,21 +51,21 @@ export function DocumentList({ documents, onRefresh }: DocumentListProps) {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from("academic")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      // ATUALIZADO PARA NEON (SQL)
+      await sql`
+        DELETE FROM academic 
+        WHERE id = ${id} 
+        AND user_id = ${user.id}
+      `;
 
       toast({ title: "Documento removido" });
       onRefresh();
     } catch (error: any) {
+      console.error("Erro ao deletar:", error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: error.message,
+        description: "Não foi possível remover o documento.",
       });
     }
   };
@@ -82,8 +83,8 @@ export function DocumentList({ documents, onRefresh }: DocumentListProps) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h4 className="truncate font-medium">{doc.doc_name}</h4>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tagColors[doc.tags]}`}>
-                {tagLabels[doc.tags]}
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tagColors[doc.tags] || "bg-gray-100 text-gray-800"}`}>
+                {tagLabels[doc.tags] || doc.tags}
               </span>
             </div>
             {doc.summary && (
@@ -92,7 +93,7 @@ export function DocumentList({ documents, onRefresh }: DocumentListProps) {
               </p>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              {format(parseISO(doc.created_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+              {format(new Date(doc.created_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
             </p>
           </div>
           <Button
