@@ -4,12 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { LoadingScreen } from "@/components/ui/loading-spinner";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 // Pages
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+// import Index from "./pages/Index"; // Não estamos usando o Index, vamos direto pro Dashboard
 import Dashboard from "./pages/Dashboard";
 import FinancesPage from "./pages/FinancesPage";
 import HealthPage from "./pages/HealthPage";
@@ -19,29 +17,17 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Protected Route Wrapper
+// Componente simples que apenas renderiza o conteúdo
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <LoadingScreen />;
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
   return <>{children}</>;
 }
 
-// App Routes Component
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/auth" element={<Auth />} />
+      {/* Redireciona a raiz direto para o dashboard */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       
-      {/* Protected Routes */}
       <Route
         path="/dashboard"
         element={
@@ -83,7 +69,6 @@ function AppRoutes() {
         }
       />
       
-      {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

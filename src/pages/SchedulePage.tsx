@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar as CalendarIcon, Clock, CheckCircle, XCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { MetricDisplay } from "@/components/dashboard/MetricDisplay";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EventsList } from "@/components/schedule/EventsList";
 import { UpcomingEventsCard } from "@/components/schedule/UpcomingEventsCard";
 import { DateRangeSelector, DateRange, getDefaultDateRange } from "@/components/ui/date-range-selector";
-import { isSameDay, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface ScheduleEvent {
   id: string;
@@ -32,33 +30,13 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
 
-  const fetchEvents = async () => {
-    if (!user) return;
-
-    try {
-      const startDate = format(dateRange.from, "yyyy-MM-dd");
-      const endDate = format(dateRange.to, "yyyy-MM-dd");
-
-      const { data } = await supabase
-        .from("agendamento")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("start_time", startDate)
-        .lte("start_time", endDate + "T23:59:59")
-        .order("start_time", { ascending: true });
-
-      if (data) {
-        setEvents(data);
-      }
-    } catch (error) {
-      console.error("Error fetching events:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchEvents();
+    const loadEmptyData = () => {
+      setEvents([]);
+      setLoading(false);
+    };
+
+    loadEmptyData();
   }, [user, dateRange]);
 
   const filteredEvents = events.filter((event) =>
@@ -68,10 +46,9 @@ export default function SchedulePage() {
   const upcomingEvents = events.filter(
     (e) => new Date(e.start_time) >= new Date()
   );
+  
   const syncedCount = events.filter((e) => e.google_event_id).length;
   const pendingCount = events.filter((e) => !e.google_event_id).length;
-
-  // Get dates with events for calendar highlighting
   const eventDates = events.map((e) => parseISO(e.start_time));
 
   if (loading) {
@@ -93,36 +70,32 @@ export default function SchedulePage() {
         actions={<DateRangeSelector value={dateRange} onChange={setDateRange} />}
       />
 
-      {/* Metrics Grid */}
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <MetricDisplay
           label="Próximos eventos"
           value={upcomingEvents.length}
-          variant="schedule"
+          variant="default"
           icon={<Clock className="h-5 w-5" />}
         />
         <MetricDisplay
           label="Sincronizados"
           value={syncedCount}
-          variant="health"
+          variant="default"
           icon={<CheckCircle className="h-5 w-5" />}
         />
         <MetricDisplay
           label="Pendentes"
           value={pendingCount}
-          variant="training"
+          variant="default"
           icon={<XCircle className="h-5 w-5" />}
         />
       </div>
 
-      {/* Upcoming Events Card */}
       <div className="mb-6">
         <UpcomingEventsCard events={upcomingEvents} maxEvents={5} />
       </div>
 
-      {/* Calendar and Events Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Calendar */}
         <motion.div
           className="rounded-xl border bg-card p-6"
           initial={{ opacity: 0, y: 20 }}
@@ -139,13 +112,13 @@ export default function SchedulePage() {
               hasEvent: {
                 backgroundColor: "hsl(var(--primary) / 0.2)",
                 borderRadius: "50%",
+                fontWeight: "bold"
               },
             }}
-            className="rounded-md"
+            className="rounded-md flex justify-center"
           />
         </motion.div>
 
-        {/* Events List */}
         <motion.div
           className="rounded-xl border bg-card p-6 lg:col-span-2"
           initial={{ opacity: 0, y: 20 }}
@@ -155,7 +128,7 @@ export default function SchedulePage() {
           <h3 className="mb-4 text-lg font-semibold">
             Eventos em {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
           </h3>
-          <EventsList events={filteredEvents} onRefresh={fetchEvents} />
+          <EventsList events={filteredEvents} onRefresh={() => {}} />
         </motion.div>
       </div>
     </DashboardLayout>
