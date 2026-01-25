@@ -1,0 +1,391 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Palinos Design System - Executive Productivity Dashboard */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* Base colors */
+    --background: 0 0% 99%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+
+    --radius: 0.75rem;
+
+    /* Palinos Module Colors */
+    --finance: 217 91% 60%;
+    --finance-light: 217 91% 95%;
+    --finance-dark: 217 91% 45%;
+
+    --health: 142 71% 45%;
+    --health-light: 142 71% 95%;
+    --health-dark: 142 71% 35%;
+
+    --training: 25 95% 53%;
+    --training-light: 25 95% 95%;
+    --training-dark: 25 95% 43%;
+
+    --schedule: 262 83% 58%;
+    --schedule-light: 262 83% 95%;
+    --schedule-dark: 262 83% 48%;
+
+    --academic: 199 89% 48%;
+    --academic-light: 199 89% 95%;
+    --academic-dark: 199 89% 38%;
+
+    /* Gradients */
+    --gradient-finance: linear-gradient(135deg, hsl(217, 91%, 60%) 0%, hsl(234, 89%, 74%) 100%);
+    --gradient-health: linear-gradient(135deg, hsl(142, 71%, 45%) 0%, hsl(158, 64%, 52%) 100%);
+    --gradient-training: linear-gradient(135deg, hsl(25, 95%, 53%) 0%, hsl(39, 100%, 50%) 100%);
+    --gradient-schedule: linear-gradient(135deg, hsl(262, 83%, 58%) 0%, hsl(284, 77%, 65%) 100%);
+    --gradient-academic: linear-gradient(135deg, hsl(199, 89%, 48%) 0%, hsl(217, 91%, 60%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -4px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.1), 0 8px 10px -6px hsl(0 0% 0% / 0.1);
+    --shadow-finance: 0 4px 14px 0 hsl(217 91% 60% / 0.25);
+    --shadow-health: 0 4px 14px 0 hsl(142 71% 45% / 0.25);
+    --shadow-training: 0 4px 14px 0 hsl(25 95% 53% / 0.25);
+    --shadow-schedule: 0 4px 14px 0 hsl(262 83% 58% / 0.25);
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 240 6% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 213 27% 84%;
+
+    --sidebar-background: 240 6% 10%;
+    --sidebar-foreground: 240 5% 96%;
+    --sidebar-primary: 224 76% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 4% 16%;
+    --sidebar-accent-foreground: 240 5% 96%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  /* Module Cards */
+  .module-card {
+    @apply relative overflow-hidden rounded-xl border bg-card p-6 transition-all duration-300;
+    box-shadow: var(--shadow-md);
+  }
+
+  .module-card:hover {
+    @apply -translate-y-1;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .module-card-finance {
+    @apply border-l-4;
+    border-left-color: hsl(var(--finance));
+  }
+
+  .module-card-finance:hover {
+    box-shadow: var(--shadow-finance);
+  }
+
+  .module-card-health {
+    @apply border-l-4;
+    border-left-color: hsl(var(--health));
+  }
+
+  .module-card-health:hover {
+    box-shadow: var(--shadow-health);
+  }
+
+  .module-card-training {
+    @apply border-l-4;
+    border-left-color: hsl(var(--training));
+  }
+
+  .module-card-training:hover {
+    box-shadow: var(--shadow-training);
+  }
+
+  .module-card-schedule {
+    @apply border-l-4;
+    border-left-color: hsl(var(--schedule));
+  }
+
+  .module-card-schedule:hover {
+    box-shadow: var(--shadow-schedule);
+  }
+
+  /* Metric Cards */
+  .metric-card {
+    @apply flex flex-col gap-2 rounded-xl bg-card p-5 border transition-all duration-200;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .metric-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Icon Containers */
+  .icon-container {
+    @apply flex h-12 w-12 items-center justify-center rounded-xl;
+  }
+
+  .icon-finance {
+    background: var(--gradient-finance);
+    @apply text-white;
+  }
+
+  .icon-health {
+    background: var(--gradient-health);
+    @apply text-white;
+  }
+
+  .icon-training {
+    background: var(--gradient-training);
+    @apply text-white;
+  }
+
+  .icon-schedule {
+    background: var(--gradient-schedule);
+    @apply text-white;
+  }
+
+  /* Status badges */
+  .status-badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .status-synced {
+    @apply bg-green-100 text-green-700;
+  }
+
+  .status-pending {
+    @apply bg-yellow-100 text-yellow-700;
+  }
+
+  /* Navigation */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200;
+  }
+
+  .nav-item:hover {
+    @apply bg-accent text-accent-foreground;
+  }
+
+  .nav-item.active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  /* Animations */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+
+  .animate-slide-in {
+    animation: slide-in-right 0.4s ease-out forwards;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  /* Stagger children animations */
+  .stagger-children > * {
+    @apply animate-fade-in;
+  }
+
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+}
+
+@layer utilities {
+  .text-finance {
+    color: hsl(var(--finance));
+  }
+
+  .text-health {
+    color: hsl(var(--health));
+  }
+
+  .text-training {
+    color: hsl(var(--training));
+  }
+
+  .text-schedule {
+    color: hsl(var(--schedule));
+  }
+
+  .bg-finance {
+    background-color: hsl(var(--finance));
+  }
+
+  .bg-finance-light {
+    background-color: hsl(var(--finance-light));
+  }
+
+  .bg-health {
+    background-color: hsl(var(--health));
+  }
+
+  .bg-health-light {
+    background-color: hsl(var(--health-light));
+  }
+
+  .bg-training {
+    background-color: hsl(var(--training));
+  }
+
+  .bg-training-light {
+    background-color: hsl(var(--training-light));
+  }
+
+  .bg-schedule {
+    background-color: hsl(var(--schedule));
+  }
+
+  .bg-schedule-light {
+    background-color: hsl(var(--schedule-light));
+  }
+
+  .gradient-finance {
+    background: var(--gradient-finance);
+  }
+
+  .gradient-health {
+    background: var(--gradient-health);
+  }
+
+  .gradient-training {
+    background: var(--gradient-training);
+  }
+
+  .gradient-schedule {
+    background: var(--gradient-schedule);
+  }
+
+  .shadow-finance {
+    box-shadow: var(--shadow-finance);
+  }
+
+  .shadow-health {
+    box-shadow: var(--shadow-health);
+  }
+
+  .shadow-training {
+    box-shadow: var(--shadow-training);
+  }
+
+  .shadow-schedule {
+    box-shadow: var(--shadow-schedule);
+  }
+}
