@@ -85,7 +85,6 @@ export default function Dashboard() {
       try {
         setLoading(true);
 
-        // CORREÇÃO: Se não houver usuário, paramos mas desligamos o loading
         if (!user) {
             console.warn("Usuário não identificado no Dashboard.");
             return;
@@ -123,6 +122,10 @@ export default function Dashboard() {
           .map(([name, value]) => ({ name, value }))
           .sort((a, b) => b.value - a.value);
 
+        // AQUI ESTAVA O ERRO!
+        // O Neon retorna 'transaction_date' como objeto Date.
+        // O componente RecentTransactions espera uma string.
+        // Convertemos forçadamente para string ISO.
         const recentTransactions: Transaction[] = [...finances]
           .sort((a: any, b: any) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
           .slice(0, 5)
@@ -132,7 +135,7 @@ export default function Dashboard() {
             amount: Number(f.amount),
             description: f.description,
             category: f.category || "Geral",
-            transaction_date: f.transaction_date,
+            transaction_date: new Date(f.transaction_date).toISOString(), // <--- CORREÇÃO AQUI
           }));
 
         // 2. SAÚDE
@@ -201,7 +204,6 @@ export default function Dashboard() {
       } catch (error) {
         console.error("Erro ao buscar dados no Neon:", error);
       } finally {
-        // CORREÇÃO: O loading é desligado SEMPRE, aconteça o que acontecer
         if (isMounted) setLoading(false);
       }
     }
@@ -221,7 +223,6 @@ export default function Dashboard() {
     );
   }
 
-  // Se o usuário não estiver logado, mostra um botão para entrar
   if (!user) {
     return (
         <DashboardLayout>

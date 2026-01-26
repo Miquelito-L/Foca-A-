@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Heart, Droplets, Moon, Dumbbell, Scale } from "lucide-react";
+import { format } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { MetricDisplay } from "@/components/dashboard/MetricDisplay";
@@ -10,6 +11,7 @@ import { WaterChart } from "@/components/health/WaterChart";
 import { SleepChart } from "@/components/health/SleepChart";
 import { HealthLog } from "@/components/health/HealthLog";
 import { DateRangeSelector, DateRange, getDefaultDateRange } from "@/components/ui/date-range-selector";
+import { sql } from "@/lib/neon";
 
 interface HealthData {
   waterToday: number;
@@ -24,7 +26,7 @@ interface HealthData {
 
 export default function HealthPage() {
   const { user } = useAuth();
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange(7));
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange(30));
   const [data, setData] = useState<HealthData>({
     waterToday: 0,
     waterGoal: 2500,
@@ -38,22 +40,80 @@ export default function HealthPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Dados zerados
-    const loadEmptyData = () => {
-      setData({
-        waterToday: 0,
-        waterGoal: 2500,
-        sleepGoal: 8,
-        lastSleep: null,
-        lastWeight: null,
-        waterHistory: [],
-        sleepHistory: [],
-        workoutLog: [],
-      });
-      setLoading(false);
+    async function fetchData() {
+      if (!user) return;
+
+      try {
+        setLoading(true);
+        const todayStr = new Date().toISOString().split("T")[0];
+        const startDate = format(dateRange.from, "yyyy-MM-dd");
+        const endDate = format(dateRange.to, "yyyy-MM-dd");
+
+        // QUERY SQL NEON - REMOVIDO ::integer
+        const healthData = await sql`
+          SELECT * FROM health 
+          WHERE user_id = ${user.id} 
+          AND calendario >= ${startDate} 
+          AND calendario <= ${endDate}
+          ORDER BY calendario ASC
+        `;
+
+        const waterToday = healthData
+          .filter((h: any) => h.category === "agua" && new Date(h.calendario).toISOString().startsWith(todayStr))
+          .reduce((acc: number, h: any) => acc + Number(h.value), 0);
+
+        const waterMap = new Map<string, number>();
+        healthData.filter((h: any) => h.category === "agua").forEach((h: any) => {
+            const d = new Date(h.calendario).toISOString().split('T')[0];
+            waterMap.set(d, (waterMap.get(d) || 0) + Number(h.value));
+        });
+        const waterHistory = Array.from(waterMap.entries()).map(([date, value]) => ({ date, value }));
+
+        const sleepHistory = healthData
+          .filter((h: any) => h.category === "sono")
+          .map((h: any) => ({ 
+              date: new Date(h.calendario).toISOString().split('T')[0], 
+              value: Number(h.value) 
+          }));
+
+        // REMOVIDO ::integer NAS CONSULTAS INDIVIDUAIS
+        const lastSleepRes = await sql`
+            SELECT value FROM health 
+            WHERE user_id = ${user.id} 
+            AND category = 'sono' 
+            ORDER BY calendario DESC LIMIT 1`;
+            
+        const lastWeightRes = await sql`
+            SELECT value FROM health 
+            WHERE user_id = ${user.id} 
+            AND category = 'peso' 
+            ORDER BY calendario DESC LIMIT 1`;
+        
+        const lastSleep = lastSleepRes.length ? Number(lastSleepRes[0].value) : null;
+        const lastWeight = lastWeightRes.length ? Number(lastWeightRes[0].value) : null;
+
+        const workoutLog = healthData
+          .filter((h: any) => h.category === "treino")
+          .map((h: any) => ({ item: h.item || "Treino", date: new Date(h.calendario).toISOString().split('T')[0] }));
+
+        setData({
+          waterToday,
+          waterGoal: 2500,
+          sleepGoal: 8,
+          lastSleep,
+          lastWeight,
+          waterHistory,
+          sleepHistory,
+          workoutLog,
+        });
+      } catch (error) {
+        console.error("Erro ao buscar dados de saúde:", error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadEmptyData();
+    fetchData();
   }, [user, dateRange]);
 
   if (loading) {
@@ -65,6 +125,8 @@ export default function HealthPage() {
       </DashboardLayout>
     );
   }
+
+  const waterPercentage = Math.min((data.waterToday / data.waterGoal) * 100, 100);
 
   return (
     <DashboardLayout>
@@ -79,25 +141,26 @@ export default function HealthPage() {
         <MetricDisplay
           label="Água hoje"
           value={`${data.waterToday}ml`}
-          variant="default"
+          variant="health"
           icon={<Droplets className="h-5 w-5" />}
+          trend={waterPercentage >= 100 ? { value: 100, isPositive: true } : undefined}
         />
         <MetricDisplay
           label="Último sono"
-          value="-"
-          variant="default"
+          value={data.lastSleep ? `${data.lastSleep}h` : "-"}
+          variant="training"
           icon={<Moon className="h-5 w-5" />}
         />
         <MetricDisplay
           label="Último peso"
-          value="-"
+          value={data.lastWeight ? `${data.lastWeight}kg` : "-"}
           variant="default"
           icon={<Scale className="h-5 w-5" />}
         />
         <MetricDisplay
           label="Treinos recentes"
-          value={0}
-          variant="default"
+          value={data.workoutLog.length}
+          variant="training"
           icon={<Dumbbell className="h-5 w-5" />}
         />
       </div>
@@ -151,7 +214,6 @@ export default function HealthPage() {
           <Dumbbell className="h-5 w-5 text-orange-500" />
           Histórico de treinos
         </h3>
-        {/* Componente deve tratar lista vazia */}
         <HealthLog data={data.workoutLog} />
       </motion.div>
     </DashboardLayout>

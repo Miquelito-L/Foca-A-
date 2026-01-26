@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { GraduationCap, FileText, BookOpen, Clock, PenLine } from "lucide-react";
+import { format } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { MetricDisplay } from "@/components/dashboard/MetricDisplay";
@@ -9,6 +10,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { DocumentList } from "@/components/academic/DocumentList";
 import { TagsOverview } from "@/components/academic/TagsOverview";
 import { DateRangeSelector, DateRange, getDefaultDateRange } from "@/components/ui/date-range-selector";
+import { ptBR } from "date-fns/locale";
+import { sql } from "@/lib/neon"; // Conexão Neon
 
 interface AcademicDocument {
   id: string;
@@ -25,19 +28,56 @@ interface TagCount {
 
 export default function AcademicPage() {
   const { user } = useAuth();
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange(7));
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange(30));
   const [documents, setDocuments] = useState<AcademicDocument[]>([]);
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadEmptyData = () => {
-      setDocuments([]);
-      setTagCounts([]);
-      setLoading(false);
-    };
+  const fetchData = async () => {
+    if (!user) return;
 
-    loadEmptyData();
+    try {
+      setLoading(true);
+      const startDate = format(dateRange.from, "yyyy-MM-dd");
+      const endDate = format(dateRange.to, "yyyy-MM-dd");
+
+      // QUERY SQL NEON
+      const data = await sql`
+        SELECT * FROM academic 
+        WHERE user_id = ${user.id} 
+        AND created_at >= ${startDate} 
+        AND created_at <= ${endDate} 
+        ORDER BY created_at DESC
+      `;
+
+      // Formatar datas para string (Neon retorna objeto Date)
+      const formattedDocs = data.map((doc: any) => ({
+          ...doc,
+          id: String(doc.id),
+          created_at: new Date(doc.created_at).toISOString()
+      }));
+
+      setDocuments(formattedDocs);
+
+      // Contar Tags
+      const tagMap = new Map<string, number>();
+      formattedDocs.forEach((doc: any) => {
+        const count = tagMap.get(doc.tags) || 0;
+        tagMap.set(doc.tags, count + 1);
+      });
+      setTagCounts(
+        Array.from(tagMap.entries()).map(([tag, count]) => ({ tag, count }))
+      );
+      
+    } catch (error) {
+      console.error("Error fetching academic data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [user, dateRange]);
 
   if (loading) {
@@ -52,6 +92,7 @@ export default function AcademicPage() {
 
   const totalDocs = documents.length;
   const withSummary = documents.filter((d) => d.summary).length;
+  const studyDocs = documents.filter((d) => d.tags === "estudo").length;
 
   return (
     <DashboardLayout>
@@ -66,24 +107,24 @@ export default function AcademicPage() {
         <MetricDisplay
           label="Total de documentos"
           value={totalDocs}
-          variant="default"
+          variant="training"
           icon={<FileText className="h-5 w-5" />}
         />
         <MetricDisplay
           label="Com resumo"
           value={withSummary}
-          variant="default"
+          variant="health"
           icon={<BookOpen className="h-5 w-5" />}
         />
         <MetricDisplay
-          label="Matérias ativas"
-          value={tagCounts.length}
-          variant="default"
+          label="Horas de estudo"
+          value={studyDocs}
+          variant="schedule"
           icon={<PenLine className="h-5 w-5" />}
         />
         <MetricDisplay
           label="Última atualização"
-          value="-"
+          value={documents[0] ? format(new Date(documents[0].created_at), "dd/MM", { locale: ptBR }) : "-"}
           variant="default"
           icon={<Clock className="h-5 w-5" />}
         />
@@ -96,7 +137,7 @@ export default function AcademicPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <h3 className="mb-4 text-lg font-semibold">Por matéria</h3>
+          <h3 className="mb-4 text-lg font-semibold">Por categoria</h3>
           <TagsOverview data={tagCounts} />
         </motion.div>
 
@@ -107,7 +148,8 @@ export default function AcademicPage() {
           transition={{ delay: 0.3 }}
         >
           <h3 className="mb-4 text-lg font-semibold">Documentos recentes</h3>
-          <DocumentList documents={documents} onRefresh={() => {}} />
+          {/* Passamos fetchData para o onRefresh para permitir deletar */}
+          <DocumentList documents={documents} onRefresh={fetchData} />
         </motion.div>
       </div>
     </DashboardLayout>
