@@ -4,8 +4,7 @@ import { sql } from "@/lib/neon";
 interface User {
   id: string;
   name: string;
-  email: string;
-  phone?: string;
+  phone: string; // Corrigido: usando 'phone' em vez de 'email'
 }
 
 interface AuthContextType {
@@ -22,41 +21,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    async function loginAutomatico() {
+    async function validarAcesso() {
       try {
-        console.log("🔄 Conectando como Usuário 1...");
+        setLoading(true);
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenDaUrl = urlParams.get("token");
 
-        // BUSCA DIRETA PELO ID 1
+        // 1. Tenta autenticar via Token da URL
+        if (tokenDaUrl) {
+          console.log("🔄 Validando token:", tokenDaUrl);
+          const tokenValido = await sql`
+            SELECT user_id FROM access_tokens 
+            WHERE token = ${tokenDaUrl} 
+            AND used = false 
+            AND expires_at > NOW()
+            LIMIT 1
+          `;
+
+          if (tokenValido && tokenValido.length > 0) {
+            const userId = tokenValido[0].user_id;
+            const userResult = await sql`
+              SELECT id, name, phone 
+              FROM users 
+              WHERE id = ${userId} 
+              LIMIT 1
+            `;
+
+            if (userResult.length > 0) {
+              console.log("✅ Acesso concedido via token para:", userResult[0].name);
+              setUser({
+                id: String(userResult[0].id),
+                name: userResult[0].name,
+                phone: userResult[0].phone
+              });
+              return;
+            }
+          } else {
+            console.warn("⚠️ Token inválido ou expirado.");
+          }
+        }
+
+        // 2. Fallback: Tenta conectar automaticamente como Usuário 1 (para testes)
+        console.log("🔄 Tentando login automático (Usuário 1)...");
         const result = await sql`
-            SELECT id, name, email 
+            SELECT id, name, phone 
             FROM users 
             WHERE id = 1 
             LIMIT 1
         `;
 
         if (result && result.length > 0) {
-            const foundUser = result[0];
-            console.log("✅ Usuário 1 Conectado:", foundUser.name);
-            
             setUser({
-                id: String(foundUser.id), // Garante que o frontend receba como string
-                name: foundUser.name,
-                email: foundUser.email
+                id: String(result[0].id),
+                name: result[0].name,
+                phone: result[0].phone
             });
-        } else {
-            console.error("❌ Usuário 1 não encontrado no banco.");
-            // Fallback de segurança caso o banco esteja vazio
-            setUser({ id: "1", name: "Usuario Fallback", email: "teste@foca.ai" });
         }
 
       } catch (error) {
-        console.error("Erro na autenticação:", error);
+        console.error("❌ Erro na autenticação:", error);
       } finally {
         setLoading(false);
       }
     }
 
-    loginAutomatico();
+    validarAcesso();
   }, []);
 
   const signIn = async () => {};

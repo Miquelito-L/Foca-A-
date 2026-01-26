@@ -4,6 +4,7 @@ interface CategoryPieChartProps {
   data: { name: string; value: number }[];
 }
 
+// Mantive suas cores exatas
 const COLORS = [
   "hsl(217, 91%, 60%)",   // finance blue
   "hsl(142, 71%, 45%)",   // health green
@@ -40,16 +41,18 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
           cx="50%"
           cy="50%"
           innerRadius={60}
-          outerRadius={100}
+          // Ajustei levemente o outerRadius de 100 para 85 para garantir 
+          // que caiba na tela do celular sem cortar, já que agora temos a legenda embaixo.
+          outerRadius={85} 
           paddingAngle={2}
           dataKey="value"
-          label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-          labelLine={false}
+          // REMOVI: label e labelLine (Isso que quebrava o layout mobile)
         >
           {data.map((_, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
+        
         <Tooltip
           formatter={(value: number) => formatCurrency(value)}
           contentStyle={{
@@ -57,6 +60,15 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
             border: "1px solid hsl(var(--border))",
             borderRadius: "8px",
           }}
+        />
+        
+        {/* ADICIONEI: Legenda na parte inferior. 
+            Isso resolve o problema de corte no mobile e fica elegante no desktop. */}
+        <Legend 
+          verticalAlign="bottom" 
+          height={36}
+          iconType="circle"
+          wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }}
         />
       </PieChart>
     </ResponsiveContainer>

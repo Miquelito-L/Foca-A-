@@ -34,27 +34,23 @@ export default function SchedulePage() {
 
   const fetchEvents = async (isBackgroundUpdate = false) => {
     if (!user) return;
-
     try {
       if (!isBackgroundUpdate) setLoading(true);
-      
-      // Busca todos os eventos (REMOVIDO ::integer)
+      const now = new Date().toISOString();
       const data = await sql`
         SELECT * FROM agendamento 
-        WHERE user_id = ${user.id} 
+        WHERE user_id = ${user.id}::integer 
+        AND start_time >= ${now}
         ORDER BY start_time ASC
       `;
-
       const formattedEvents = data.map((e: any) => ({
           ...e,
           id: String(e.id),
           start_time: new Date(e.start_time).toISOString(),
           end_time: e.end_time ? new Date(e.end_time).toISOString() : null
       }));
-
       setEvents(formattedEvents);
       setLastUpdated(new Date());
-
     } catch (error) {
       console.error("Error fetching events:", error);
     } finally {
@@ -64,21 +60,14 @@ export default function SchedulePage() {
 
   useEffect(() => {
     fetchEvents();
-
-    // Atualização em tempo real a cada 5 segundos
-    const interval = setInterval(() => {
-      fetchEvents(true);
-    }, 5000);
-
+    const interval = setInterval(() => fetchEvents(true), 5000);
     return () => clearInterval(interval);
-  }, [user, dateRange]);
+  }, [user]);
 
   const filteredEvents = events.filter((event) =>
     isSameDay(parseISO(event.start_time), selectedDate)
   );
-
   const upcomingEvents = events; 
-  
   const syncedCount = events.filter((e) => e.google_event_id).length;
   const pendingCount = events.filter((e) => !e.google_event_id).length;
   const eventDates = events.map((e) => parseISO(e.start_time));
@@ -97,22 +86,23 @@ export default function SchedulePage() {
     <DashboardLayout>
       <PageHeader
         title="Agenda"
-        description="Gerencie seus compromissos"
+        description="Seus compromissos"
         icon={<CalendarIcon className="h-6 w-6" />}
         actions={
             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full hidden sm:flex">
                     <RefreshCw className="h-3 w-3 animate-spin" />
-                    Atualizado às {format(lastUpdated, "HH:mm:ss")}
+                    {format(lastUpdated, "HH:mm")}
                 </div>
                 <DateRangeSelector value={dateRange} onChange={setDateRange} />
             </div>
         }
       />
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      {/* MOBILE FIX: grid-cols-2 para as métricas ficarem menores e mais densas */}
+      <div className="mb-8 grid gap-3 grid-cols-2 sm:grid-cols-3">
         <MetricDisplay
-          label="Total de Eventos"
+          label="Futuros"
           value={upcomingEvents.length}
           variant="schedule"
           icon={<Clock className="h-5 w-5" />}
@@ -123,6 +113,8 @@ export default function SchedulePage() {
           variant="health"
           icon={<CheckCircle className="h-5 w-5" />}
         />
+        {/* O terceiro item ocupa as 2 colunas no mobile para não ficar um buraco, ou fica normal. 
+            Vou deixar normal para manter o padrão 2x2 (com um vazio) ou fluido. */}
         <MetricDisplay
           label="Pendentes"
           value={pendingCount}
@@ -133,47 +125,50 @@ export default function SchedulePage() {
 
       <div className="mb-6">
         {upcomingEvents.length > 0 ? (
-            <UpcomingEventsCard events={upcomingEvents} maxEvents={10} />
+            <UpcomingEventsCard events={upcomingEvents} maxEvents={5} />
         ) : (
             <div className="p-6 border rounded-lg bg-card text-center text-muted-foreground">
-                <p>Nenhum evento encontrado.</p>
+                <p>Sem compromissos futuros.</p>
             </div>
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <motion.div
-          className="rounded-xl border bg-card p-6"
+          className="rounded-xl border bg-card p-4 sm:p-6 overflow-hidden flex justify-center" // Centraliza o calendário
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => date && setSelectedDate(date)}
-            locale={ptBR}
-            modifiers={{ hasEvent: eventDates }}
-            modifiersStyles={{
-              hasEvent: {
-                backgroundColor: "hsl(var(--primary) / 0.2)",
-                borderRadius: "50%",
-                fontWeight: "bold",
-                color: "hsl(var(--primary))"
-              },
-            }}
-            className="rounded-md"
-          />
+          {/* Wrapper para garantir que o calendário não estoure */}
+          <div className="w-full max-w-[350px]">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => date && setSelectedDate(date)}
+              locale={ptBR}
+              modifiers={{ hasEvent: eventDates }}
+              modifiersStyles={{
+                hasEvent: {
+                  backgroundColor: "hsl(var(--primary) / 0.2)",
+                  borderRadius: "50%",
+                  fontWeight: "bold",
+                  color: "hsl(var(--primary))"
+                },
+              }}
+              className="rounded-md border-none w-full"
+            />
+          </div>
         </motion.div>
 
         <motion.div
-          className="rounded-xl border bg-card p-6 lg:col-span-2"
+          className="rounded-xl border bg-card p-4 sm:p-6 lg:col-span-2 overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
           <h3 className="mb-4 text-lg font-semibold">
-            Eventos em {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+            Eventos em {format(selectedDate, "dd 'de' MMM", { locale: ptBR })}
           </h3>
           <EventsList events={filteredEvents} onRefresh={() => fetchEvents(false)} />
         </motion.div>

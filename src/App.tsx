@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ScrollToTop from "@/components/ScrollToTop"; // <--- 1. Importação nova
 
 // Pages
 // import Index from "./pages/Index"; // Não estamos usando o Index, vamos direto pro Dashboard
@@ -81,6 +82,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop /> {/* <--- 2. Adicionado aqui para resetar o scroll */}
           <AuthProvider>
             <AppRoutes />
           </AuthProvider>

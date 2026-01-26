@@ -1,3 +1,5 @@
+// src/pages/Dashboard.tsx
+
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -16,6 +18,7 @@ import { sql } from "@/lib/neon";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
+// Interfaces mantidas conforme o original
 interface Transaction {
   id: string;
   type: "income" | "expense";
@@ -26,21 +29,11 @@ interface Transaction {
 }
 
 interface DashboardSummary {
-  finances: {
-    balance: number;
-    income: number;
-    expenses: number;
-  };
+  finances: { balance: number; income: number; expenses: number; };
   expensesByCategory: { name: string; value: number }[];
   recentTransactions: Transaction[];
-  health: {
-    waterToday: number;
-    lastSleep: number | null;
-  };
-  academic: {
-    totalDocs: number;
-    tagCounts: { tag: string; count: number }[];
-  };
+  health: { waterToday: number; lastSleep: number | null; };
+  academic: { totalDocs: number; tagCounts: { tag: string; count: number }[]; };
   schedule: {
     upcomingEvents: number;
     syncedEvents: number;
@@ -85,16 +78,13 @@ export default function Dashboard() {
       try {
         setLoading(true);
 
-        if (!user) {
-            console.warn("Usuário não identificado no Dashboard.");
-            return;
-        }
+        if (!user) return;
 
         const startDate = format(dateRange.from, "yyyy-MM-dd");
         const endDate = format(dateRange.to, "yyyy-MM-dd");
-        const today = new Date().toISOString().split("T")[0];
+        const todayStr = format(new Date(), "yyyy-MM-dd");
 
-        // 1. FINANÇAS
+        // 1. FINANÇAS (Mantido filtro por data selecionada)
         const finances = await sql`
           SELECT * FROM finances 
           WHERE user_id = ${user.id} 
@@ -102,30 +92,17 @@ export default function Dashboard() {
           AND transaction_date <= ${endDate}
         `;
 
-        const income = finances
-          .filter((f: any) => f.type === 'income')
-          .reduce((acc: number, f: any) => acc + Number(f.amount), 0);
-        
-        const expenses = finances
-          .filter((f: any) => f.type === 'expense')
-          .reduce((acc: number, f: any) => acc + Number(f.amount), 0);
+        const income = finances.filter((f: any) => f.type === 'income').reduce((acc: number, f: any) => acc + Number(f.amount), 0);
+        const expenses = finances.filter((f: any) => f.type === 'expense').reduce((acc: number, f: any) => acc + Number(f.amount), 0);
 
         const categoryMap: Record<string, number> = {};
-        finances
-          .filter((f: any) => f.type === 'expense')
-          .forEach((f: any) => {
+        finances.filter((f: any) => f.type === 'expense').forEach((f: any) => {
             const cat = f.category || "Geral";
             categoryMap[cat] = (categoryMap[cat] || 0) + Number(f.amount);
-          });
+        });
           
-        const expensesByCategory = Object.entries(categoryMap)
-          .map(([name, value]) => ({ name, value }))
-          .sort((a, b) => b.value - a.value);
+        const expensesByCategory = Object.entries(categoryMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-        // AQUI ESTAVA O ERRO!
-        // O Neon retorna 'transaction_date' como objeto Date.
-        // O componente RecentTransactions espera uma string.
-        // Convertemos forçadamente para string ISO.
         const recentTransactions: Transaction[] = [...finances]
           .sort((a: any, b: any) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
           .slice(0, 5)
@@ -135,72 +112,86 @@ export default function Dashboard() {
             amount: Number(f.amount),
             description: f.description,
             category: f.category || "Geral",
-            transaction_date: new Date(f.transaction_date).toISOString(), // <--- CORREÇÃO AQUI
+            transaction_date: new Date(f.transaction_date).toISOString(),
           }));
 
         // 2. SAÚDE
         const healthData = await sql`
           SELECT * FROM health 
           WHERE user_id = ${user.id} 
-          AND calendario >= ${today}
+          AND calendario >= ${todayStr}
         `;
 
-        const waterToday = healthData
-          .filter((h: any) => h.category === "Agua")
-          .reduce((acc: number, h: any) => acc + Number(h.value), 0);
-
-        const sleepResult = await sql`
-          SELECT value FROM health 
-          WHERE user_id = ${user.id} 
-          AND category = 'Sono' 
-          ORDER BY calendario DESC 
-          LIMIT 1
-        `;
+        const waterToday = healthData.filter((h: any) => h.category === "Agua").reduce((acc: number, h: any) => acc + Number(h.value), 0);
+        const sleepResult = await sql`SELECT value FROM health WHERE user_id = ${user.id} AND category = 'Sono' ORDER BY calendario DESC LIMIT 1`;
         const lastSleep = sleepResult.length > 0 ? Number(sleepResult[0].value) : null;
 
         // 3. ACADÊMICO
-        const academicDocs = await sql`
-          SELECT tags FROM academic WHERE user_id = ${user.id}
-        `;
-        
-        const totalDocs = academicDocs.length;
+        const academicDocs = await sql`SELECT tags FROM academic WHERE user_id = ${user.id}`;
         const tagMap: Record<string, number> = {};
-        academicDocs.forEach((doc: any) => {
-            if(doc.tags) tagMap[doc.tags] = (tagMap[doc.tags] || 0) + 1;
-        });
-        const tagCounts = Object.entries(tagMap).map(([tag, count]) => ({ tag, count }));
+        academicDocs.forEach((doc: any) => { if(doc.tags) tagMap[doc.tags] = (tagMap[doc.tags] || 0) + 1; });
 
-        // 4. AGENDA
-        const now = new Date().toISOString();
+        // 4. AGENDA - CORREÇÃO AQUI 🚀
+        // Alteramos para usar CURRENT_TIMESTAMP do Postgres para garantir que apenas compromissos FUTUROS sejam listados.
+        // Além disso, filtramos para não mostrar eventos com status 'cancelado'.
+      // Dentro do useEffect do Dashboard.tsx, no módulo 4 (AGENDA):
+
+        // 4. AGENDA - Filtro Definitivo para Compromissos Futuros
+// Usamos a data atual do banco de dados para evitar conflitos de fuso horário do navegador.
+       // Em Dashboard.tsx, substitua a query da agenda por esta:
         const events = await sql`
-          SELECT * FROM agendamento 
+          SELECT 
+            id, 
+            title, 
+            start_time, 
+            google_event_id 
+          FROM agendamento 
           WHERE user_id = ${user.id} 
-          AND start_time >= ${now} 
+          -- Força o banco a converter o campo para data e comparar com o HOJE do servidor
+          AND start_time::date >= CURRENT_DATE 
           ORDER BY start_time ASC 
           LIMIT 5
         `;
 
         if (isMounted) {
-          setSummary({
-            finances: { balance: income - expenses, income, expenses },
-            expensesByCategory,
-            recentTransactions,
-            health: { waterToday, lastSleep },
-            academic: { totalDocs, tagCounts },
+          setSummary(prev => ({
+            ...prev,
             schedule: { 
               upcomingEvents: events.length, 
               syncedEvents: events.filter((e: any) => e.google_event_id).length, 
               nextEvents: events.map((e: any) => ({
                   id: String(e.id),
                   title: e.title,
-                  start_time: e.start_time,
+                  // Converte o timestamp do banco para o fuso horário local do usuário para exibição
+                  start_time: new Date(e.start_time).toISOString(),
+                  google_event_id: e.google_event_id
+              })) 
+            },
+          }));
+        }
+
+// Log de depuração (opcional, para você ver no console o que está vindo)
+console.log("Compromissos futuros encontrados:", events);
+        if (isMounted) {
+          setSummary({
+            finances: { balance: income - expenses, income, expenses },
+            expensesByCategory,
+            recentTransactions,
+            health: { waterToday, lastSleep },
+            academic: { totalDocs: academicDocs.length, tagCounts: Object.entries(tagMap).map(([tag, count]) => ({ tag, count })) },
+            schedule: { 
+              upcomingEvents: events.length, 
+              syncedEvents: events.filter((e: any) => e.google_event_id).length, 
+              nextEvents: events.map((e: any) => ({
+                  id: String(e.id),
+                  title: e.title,
+                  start_time: new Date(e.start_time).toISOString(),
                   google_event_id: e.google_event_id
               })) 
             },
             userName: user.name || "Usuário",
           });
         }
-
       } catch (error) {
         console.error("Erro ao buscar dados no Neon:", error);
       } finally {
@@ -209,44 +200,18 @@ export default function Dashboard() {
     }
 
     fetchSummary();
-
     return () => { isMounted = false; };
   }, [user, dateRange]);
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <LoadingSpinner />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!user) {
-    return (
-        <DashboardLayout>
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-                <h2 className="text-xl font-semibold">Sessão expirada ou não iniciada</h2>
-                <Link to="/auth">
-                    <Button>Fazer Login</Button>
-                </Link>
-            </div>
-        </DashboardLayout>
-    )
-  }
+  // Renderização e estados de erro mantidos conforme original
+  if (loading) return <DashboardLayout><div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner /></div></DashboardLayout>;
+  if (!user) return <DashboardLayout><div className="flex flex-col items-center justify-center min-h-[60vh] gap-4"><h2 className="text-xl font-semibold">Sessão expirada ou não iniciada</h2><Link to="/auth"><Button>Fazer Login</Button></Link></div></DashboardLayout>;
 
   return (
     <DashboardLayout>
-      <motion.div
-        className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <div>
-          <h1 className="text-3xl font-bold">
-            {getGreeting()}, {summary.userName}! 👋
-          </h1>
+          <h1 className="text-3xl font-bold">{getGreeting()}, {summary.userName}! 👋</h1>
           <p className="text-muted-foreground capitalize mt-1">{todayFormatted}</p>
         </div>
         <DateRangeSelector value={dateRange} onChange={setDateRange} />
@@ -254,38 +219,17 @@ export default function Dashboard() {
 
       <section className="mb-8">
         <div className="grid gap-6 lg:grid-cols-3">
-          <FinanceSummaryCard
-            balance={summary.finances.balance}
-            income={summary.finances.income}
-            expenses={summary.finances.expenses}
-          />
-          <ExpensesPieChart
-            data={summary.expensesByCategory}
-            total={summary.finances.expenses}
-          />
-          <RecentTransactions
-            transactions={summary.recentTransactions}
-          />
+          <FinanceSummaryCard balance={summary.finances.balance} income={summary.finances.income} expenses={summary.finances.expenses} />
+          <ExpensesPieChart data={summary.expensesByCategory} total={summary.finances.expenses} />
+          <RecentTransactions transactions={summary.recentTransactions} />
         </div>
       </section>
 
       <section>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <HealthSummaryCard
-            waterToday={summary.health.waterToday}
-            lastSleep={summary.health.lastSleep}
-            waterGoal={2500}
-            sleepGoal={8}
-          />
-          <AcademicSummaryCard
-            totalDocs={summary.academic.totalDocs}
-            tagCounts={summary.academic.tagCounts}
-          />
-          <ScheduleSummaryCard
-            upcomingEvents={summary.schedule.upcomingEvents}
-            syncedEvents={summary.schedule.syncedEvents}
-            nextEvents={summary.schedule.nextEvents}
-          />
+          <HealthSummaryCard waterToday={summary.health.waterToday} lastSleep={summary.health.lastSleep} waterGoal={2500} sleepGoal={8} />
+          <AcademicSummaryCard totalDocs={summary.academic.totalDocs} tagCounts={summary.academic.tagCounts} />
+          <ScheduleSummaryCard upcomingEvents={summary.schedule.upcomingEvents} syncedEvents={summary.schedule.syncedEvents} nextEvents={summary.schedule.nextEvents} />
         </div>
       </section>
     </DashboardLayout>

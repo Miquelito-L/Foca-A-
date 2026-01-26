@@ -11,7 +11,7 @@ import { DocumentList } from "@/components/academic/DocumentList";
 import { TagsOverview } from "@/components/academic/TagsOverview";
 import { DateRangeSelector, DateRange, getDefaultDateRange } from "@/components/ui/date-range-selector";
 import { ptBR } from "date-fns/locale";
-import { sql } from "@/lib/neon"; // Conexão Neon
+import { sql } from "@/lib/neon";
 
 interface AcademicDocument {
   id: string;
@@ -41,16 +41,14 @@ export default function AcademicPage() {
       const startDate = format(dateRange.from, "yyyy-MM-dd");
       const endDate = format(dateRange.to, "yyyy-MM-dd");
 
-      // QUERY SQL NEON
       const data = await sql`
         SELECT * FROM academic 
-        WHERE user_id = ${user.id} 
+        WHERE user_id = ${user.id}::integer 
         AND created_at >= ${startDate} 
         AND created_at <= ${endDate} 
         ORDER BY created_at DESC
       `;
 
-      // Formatar datas para string (Neon retorna objeto Date)
       const formattedDocs = data.map((doc: any) => ({
           ...doc,
           id: String(doc.id),
@@ -59,7 +57,6 @@ export default function AcademicPage() {
 
       setDocuments(formattedDocs);
 
-      // Contar Tags
       const tagMap = new Map<string, number>();
       formattedDocs.forEach((doc: any) => {
         const count = tagMap.get(doc.tags) || 0;
@@ -98,14 +95,16 @@ export default function AcademicPage() {
     <DashboardLayout>
       <PageHeader
         title="Acadêmico"
-        description="Gerencie seus estudos e resumos"
+        description="Gerencie seus estudos"
         icon={<GraduationCap className="h-6 w-6" />}
         actions={<DateRangeSelector value={dateRange} onChange={setDateRange} />}
       />
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-4">
+      {/* MOBILE FIX: grid-cols-2 (Dois por linha) para diminuir o tamanho dos cards e o 'zoom'.
+          DESKTOP: sm:grid-cols-4 (Quatro por linha) */}
+      <div className="mb-8 grid gap-3 grid-cols-2 sm:grid-cols-4">
         <MetricDisplay
-          label="Total de documentos"
+          label="Total docs" // Encurtei o label pro mobile
           value={totalDocs}
           variant="training"
           icon={<FileText className="h-5 w-5" />}
@@ -117,39 +116,43 @@ export default function AcademicPage() {
           icon={<BookOpen className="h-5 w-5" />}
         />
         <MetricDisplay
-          label="Horas de estudo"
+          label="Horas estudo"
           value={studyDocs}
           variant="schedule"
           icon={<PenLine className="h-5 w-5" />}
         />
         <MetricDisplay
-          label="Última atualização"
+          label="Atualização"
           value={documents[0] ? format(new Date(documents[0].created_at), "dd/MM", { locale: ptBR }) : "-"}
           variant="default"
           icon={<Clock className="h-5 w-5" />}
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <motion.div
-          className="rounded-xl border bg-card p-6"
+          // MOBILE FIX: p-4 em vez de p-6 para ganhar espaço
+          className="rounded-xl border bg-card p-4 sm:p-6 overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
           <h3 className="mb-4 text-lg font-semibold">Por categoria</h3>
-          <TagsOverview data={tagCounts} />
+          <div className="w-full overflow-hidden">
+            <TagsOverview data={tagCounts} />
+          </div>
         </motion.div>
 
         <motion.div
-          className="rounded-xl border bg-card p-6 lg:col-span-2"
+          className="rounded-xl border bg-card p-4 sm:p-6 lg:col-span-2 overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
           <h3 className="mb-4 text-lg font-semibold">Documentos recentes</h3>
-          {/* Passamos fetchData para o onRefresh para permitir deletar */}
-          <DocumentList documents={documents} onRefresh={fetchData} />
+          <div className="w-full">
+            <DocumentList documents={documents} onRefresh={fetchData} />
+          </div>
         </motion.div>
       </div>
     </DashboardLayout>

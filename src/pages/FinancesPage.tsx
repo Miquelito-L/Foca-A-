@@ -13,7 +13,7 @@ import { DateRangeSelector, DateRange, getDefaultDateRange } from "@/components/
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sql } from "@/lib/neon"; // Conexão Neon
+import { sql } from "@/lib/neon";
 
 interface FinanceData {
   balance: number;
@@ -25,7 +25,7 @@ interface FinanceData {
 
 export default function FinancesPage() {
   const { user } = useAuth();
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange(30)); // Padrão 30 dias para ver mais dados
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange(30));
   const [data, setData] = useState<FinanceData>({
     balance: 0,
     totalIncome: 0,
@@ -39,16 +39,14 @@ export default function FinancesPage() {
   useEffect(() => {
     async function fetchData() {
       if (!user) return;
-
       try {
         setLoading(true);
         const startDate = format(dateRange.from, "yyyy-MM-dd");
         const endDate = format(dateRange.to, "yyyy-MM-dd");
 
-        // QUERY SQL NEON
         const finances = await sql`
           SELECT * FROM finances 
-          WHERE user_id = ${user.id} 
+          WHERE user_id = ${user.id}::integer 
           AND transaction_date >= ${startDate} 
           AND transaction_date <= ${endDate}
           ORDER BY transaction_date DESC
@@ -64,7 +62,6 @@ export default function FinancesPage() {
 
         const balance = totalIncome - totalExpenses;
 
-        // Categorias
         const categoryMap = new Map<string, number>();
         finances
           .filter((f: any) => f.type === "expense")
@@ -78,10 +75,8 @@ export default function FinancesPage() {
           value,
         }));
 
-        // Gráfico Diário
         const dailyMap = new Map<string, { income: number; expense: number }>();
         finances.forEach((f: any) => {
-          // Garante que a data seja string YYYY-MM-DD
           const dateObj = new Date(f.transaction_date);
           const date = dateObj.toISOString().split('T')[0];
           
@@ -132,12 +127,15 @@ export default function FinancesPage() {
     <DashboardLayout>
       <PageHeader
         title="Finanças"
-        description="Gerencie seu fluxo de caixa"
+        description="Gerencie seu fluxo"
         icon={<Wallet className="h-6 w-6" />}
         actions={<DateRangeSelector value={dateRange} onChange={setDateRange} />}
       />
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      {/* MOBILE: grid-cols-1 (Um embaixo do outro)
+         DESKTOP (sm): sm:grid-cols-3 (Três colunas, IGUAL ANTES)
+      */}
+      <div className="mb-8 grid gap-4 grid-cols-1 sm:grid-cols-3">
         <MetricDisplay
           label="Saldo atual"
           value={formatCurrency(data.balance)}
@@ -158,9 +156,13 @@ export default function FinancesPage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2 mb-8">
+      {/* MOBILE: grid-cols-1 (Um gráfico embaixo do outro)
+         DESKTOP (lg): lg:grid-cols-2 (Lado a lado, IGUAL ANTES)
+         Adicionei 'overflow-hidden' para o gráfico não vazar no celular
+      */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 mb-8">
         <motion.div
-          className="rounded-xl border bg-card p-6"
+          className="rounded-xl border bg-card p-4 sm:p-6 overflow-hidden" 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -169,11 +171,13 @@ export default function FinancesPage() {
             <ArrowLeftRight className="h-5 w-5 text-primary" />
             Fluxo de Transação
           </h3>
-          <TransactionFlowChart data={data.dailyData} />
+          <div className="h-[300px] w-full"> 
+             <TransactionFlowChart data={data.dailyData} />
+          </div>
         </motion.div>
 
         <motion.div
-          className="rounded-xl border bg-card p-6"
+          className="rounded-xl border bg-card p-4 sm:p-6 overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -182,40 +186,42 @@ export default function FinancesPage() {
             <PieChart className="h-5 w-5 text-primary" />
             Gastos por categoria
           </h3>
-          <CategoryPieChart data={data.categoryData} />
+          <div className="h-[300px] w-full">
+            <CategoryPieChart data={data.categoryData} />
+          </div>
         </motion.div>
       </div>
 
       <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Histórico de Transações</CardTitle>
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <CardTitle>Histórico</CardTitle>
               <div className="flex items-center gap-2">
-                <div className="relative">
+                <div className="relative flex-1 sm:flex-none">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Buscar..." className="pl-8 w-[200px]" />
+                  <Input placeholder="Buscar..." className="pl-8 w-full sm:w-[200px]" />
                 </div>
                 <Button variant="outline" size="icon"><Filter className="h-4 w-4" /></Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-0 sm:p-6">
+            <div className="divide-y">
               {transactions.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">Nenhuma transação encontrada neste período.</p>
+                <p className="text-center text-muted-foreground py-8">Nenhuma transação encontrada.</p>
               ) : (
                 transactions.map((t: any) => (
-                  <div key={t.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-full ${t.type === 'income' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
-                        {t.type === 'income' ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                  <div key={t.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className={`p-2 rounded-full shrink-0 ${t.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {t.type === 'income' ? <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" /> : <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />}
                       </div>
-                      <div>
-                        <p className="font-medium">{t.description}</p>
-                        <p className="text-sm text-muted-foreground">{t.category} • {format(new Date(t.transaction_date), "dd/MM/yyyy")}</p>
+                      <div className="min-w-0"> 
+                        <p className="font-medium truncate max-w-[150px] sm:max-w-none">{t.description}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{t.category} • {format(new Date(t.transaction_date), "dd/MM")}</p>
                       </div>
                     </div>
-                    <div className={`font-bold ${t.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    <div className={`font-bold text-sm sm:text-base ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                       {t.type === 'income' ? '+' : '-'}{formatCurrency(Number(t.amount))}
                     </div>
                   </div>
