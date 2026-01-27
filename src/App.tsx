@@ -45,6 +45,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+<Route path="/login" element={<Navigate to="/dashboard" replace />} />
       <Route
         path="/dashboard/health"
         element={
