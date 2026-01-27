@@ -18,7 +18,6 @@ import { sql } from "@/lib/neon";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
-// Interfaces mantidas conforme o original
 interface Transaction {
   id: string;
   type: "income" | "expense";
@@ -76,15 +75,14 @@ export default function Dashboard() {
 
     async function fetchSummary() {
       try {
-        setLoading(true);
-
         if (!user) return;
+        setLoading(true);
 
         const startDate = format(dateRange.from, "yyyy-MM-dd");
         const endDate = format(dateRange.to, "yyyy-MM-dd");
         const todayStr = format(new Date(), "yyyy-MM-dd");
 
-        // 1. FINANÇAS (Mantido filtro por data selecionada)
+        // 1. FINANÇAS
         const finances = await sql`
           SELECT * FROM finances 
           WHERE user_id = ${user.id} 
@@ -101,7 +99,9 @@ export default function Dashboard() {
             categoryMap[cat] = (categoryMap[cat] || 0) + Number(f.amount);
         });
           
-        const expensesByCategory = Object.entries(categoryMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+        const expensesByCategory = Object.entries(categoryMap)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
 
         const recentTransactions: Transaction[] = [...finances]
           .sort((a: any, b: any) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
@@ -130,15 +130,10 @@ export default function Dashboard() {
         const academicDocs = await sql`SELECT tags FROM academic WHERE user_id = ${user.id}`;
         const tagMap: Record<string, number> = {};
         academicDocs.forEach((doc: any) => { if(doc.tags) tagMap[doc.tags] = (tagMap[doc.tags] || 0) + 1; });
+        const tagCounts = Object.entries(tagMap).map(([tag, count]) => ({ tag, count }));
 
-        // 4. AGENDA - CORREÇÃO AQUI 🚀
-        // Alteramos para usar CURRENT_TIMESTAMP do Postgres para garantir que apenas compromissos FUTUROS sejam listados.
-        // Além disso, filtramos para não mostrar eventos com status 'cancelado'.
-      // Dentro do useEffect do Dashboard.tsx, no módulo 4 (AGENDA):
-
-        // 4. AGENDA - Filtro Definitivo para Compromissos Futuros
-// Usamos a data atual do banco de dados para evitar conflitos de fuso horário do navegador.
-       // Em Dashboard.tsx, substitua a query da agenda por esta:
+        // 4. AGENDA - FILTRO DEFINITIVO
+        // Usamos CURRENT_TIMESTAMP para garantir precisão de minutos e status para filtrar cancelados.
         const events = await sql`
           SELECT 
             id, 
@@ -147,38 +142,19 @@ export default function Dashboard() {
             google_event_id 
           FROM agendamento 
           WHERE user_id = ${user.id} 
-          -- Força o banco a converter o campo para data e comparar com o HOJE do servidor
-          AND start_time::date >= CURRENT_DATE 
+          AND start_time >= CURRENT_TIMESTAMP 
+          AND status NOT IN ('cancelado', 'concluido')
           ORDER BY start_time ASC 
           LIMIT 5
         `;
 
-        if (isMounted) {
-          setSummary(prev => ({
-            ...prev,
-            schedule: { 
-              upcomingEvents: events.length, 
-              syncedEvents: events.filter((e: any) => e.google_event_id).length, 
-              nextEvents: events.map((e: any) => ({
-                  id: String(e.id),
-                  title: e.title,
-                  // Converte o timestamp do banco para o fuso horário local do usuário para exibição
-                  start_time: new Date(e.start_time).toISOString(),
-                  google_event_id: e.google_event_id
-              })) 
-            },
-          }));
-        }
-
-// Log de depuração (opcional, para você ver no console o que está vindo)
-console.log("Compromissos futuros encontrados:", events);
         if (isMounted) {
           setSummary({
             finances: { balance: income - expenses, income, expenses },
             expensesByCategory,
             recentTransactions,
             health: { waterToday, lastSleep },
-            academic: { totalDocs: academicDocs.length, tagCounts: Object.entries(tagMap).map(([tag, count]) => ({ tag, count })) },
+            academic: { totalDocs: academicDocs.length, tagCounts },
             schedule: { 
               upcomingEvents: events.length, 
               syncedEvents: events.filter((e: any) => e.google_event_id).length, 
@@ -203,7 +179,6 @@ console.log("Compromissos futuros encontrados:", events);
     return () => { isMounted = false; };
   }, [user, dateRange]);
 
-  // Renderização e estados de erro mantidos conforme original
   if (loading) return <DashboardLayout><div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner /></div></DashboardLayout>;
   if (!user) return <DashboardLayout><div className="flex flex-col items-center justify-center min-h-[60vh] gap-4"><h2 className="text-xl font-semibold">Sessão expirada ou não iniciada</h2><Link to="/auth"><Button>Fazer Login</Button></Link></div></DashboardLayout>;
 
