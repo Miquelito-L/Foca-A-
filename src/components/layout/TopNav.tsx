@@ -20,13 +20,14 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
+
+
         {/* Logo - Left */}
         <Link to="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Target className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src="/logo_foca_ai.jpg" alt="Foca.Aí" className="h-9 w-9 rounded-lg object-cover" />
           <span className="text-xl font-bold tracking-tight">Foca.Aí</span>
         </Link>
+
 
         {/* Navigation - Center (hidden on mobile) */}
         <nav className="hidden md:flex items-center gap-1">
