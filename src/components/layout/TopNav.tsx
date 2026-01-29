@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Target, Sun, Moon } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,13 @@ export function TopNav() {
 
         {/* Logo - Left */}
         <Link to="/dashboard" className="flex items-center gap-2">
-          <img src="/logo_simbolo_branco.jpg" alt="Foca.Aí" className="h-9 w-9 rounded-lg object-cover" />
+          <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-primary">
+            <img
+              src="/logo_simbolo_branco.jpg"
+              alt="Foca.Aí"
+              className="h-full w-full object-contain"
+            />
+          </div>
           <span className="text-xl font-bold tracking-tight">Foca.Aí</span>
         </Link>
 
