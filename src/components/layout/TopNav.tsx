@@ -24,7 +24,7 @@ export function TopNav() {
 
         {/* Logo - Left */}
         <Link to="/dashboard" className="flex items-center gap-2">
-          <img src="/logo_foca_ai.jpg" alt="Foca.Aí" className="h-9 w-9 rounded-lg object-cover" />
+          <img src="/logo_simbolo_branco.jpg" alt="Foca.Aí" className="h-9 w-9 rounded-lg object-cover" />
           <span className="text-xl font-bold tracking-tight">Foca.Aí</span>
         </Link>
 
