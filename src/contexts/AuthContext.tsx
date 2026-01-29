@@ -4,7 +4,7 @@ import { sql } from "@/lib/neon";
 interface User {
   id: string;
   name: string;
-  phone: string; // Corrigido: usando 'phone' em vez de 'email'
+  phone: string;
 }
 
 interface AuthContextType {
@@ -24,12 +24,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function validarAcesso() {
       try {
         setLoading(true);
+        // Pega o token da URL atual (independente da rota que você esteja)
         const urlParams = new URLSearchParams(window.location.search);
         const tokenDaUrl = urlParams.get("token");
 
-        // 1. Tenta autenticar via Token da URL
         if (tokenDaUrl) {
-          console.log("🔄 Validando token:", tokenDaUrl);
+          console.log("🔄 Validando token recebido:", tokenDaUrl);
+
+          // Verifica no banco se o token existe, não foi usado e ainda é válido (data)
+          // Atenção: O NOW() do banco geralmente é UTC (fuso 0). 
           const tokenValido = await sql`
             SELECT user_id FROM access_tokens 
             WHERE token = ${tokenDaUrl} 
@@ -40,6 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (tokenValido && tokenValido.length > 0) {
             const userId = tokenValido[0].user_id;
+            console.log("✅ Token válido! Buscando usuário ID:", userId);
+
             const userResult = await sql`
               SELECT id, name, phone 
               FROM users 
@@ -48,34 +53,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             `;
 
             if (userResult.length > 0) {
-              console.log("✅ Acesso concedido via token para:", userResult[0].name);
+              console.log("👤 Usuário autenticado:", userResult[0].name);
               setUser({
                 id: String(userResult[0].id),
                 name: userResult[0].name,
                 phone: userResult[0].phone
               });
-              return;
+              
+              // Opcional: Se quiser limpar o token da URL para ficar "bonito"
+              // window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+              console.error("❌ Erro crítico: Token válido, mas usuário não encontrado no banco.");
             }
           } else {
-            console.warn("⚠️ Token inválido ou expirado.");
+            console.warn("⚠️ Acesso negado: Token inválido, expirado ou já utilizado.");
+            console.log("Dica: Verifique se o 'expires_at' no banco não está no passado devido ao Fuso Horário.");
           }
-        }
-
-        // 2. Fallback: Tenta conectar automaticamente como Usuário 1 (para testes)
-        console.log("🔄 Tentando login automático (Usuário 1)...");
-        const result = await sql`
-            SELECT id, name, phone 
-            FROM users 
-            WHERE id = 1 
-            LIMIT 1
-        `;
-
-        if (result && result.length > 0) {
-            setUser({
-                id: String(result[0].id),
-                name: result[0].name,
-                phone: result[0].phone
-            });
+        } else {
+          console.log("ℹ️ Nenhum token encontrado na URL.");
         }
 
       } catch (error) {

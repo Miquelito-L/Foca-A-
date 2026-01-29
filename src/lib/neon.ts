@@ -1,10 +1,10 @@
 import { neon } from '@neondatabase/serverless';
 
-// Na Vercel, configuraremos como VITE_DATABASE_URL para o frontend ter acesso
-const connectionString = import.meta.env.VITE_DATABASE_URL;
+// Tenta pegar a VITE_ (para desenvolvimento local) ou a DATABASE_URL (para produção segura)
+const connectionString = import.meta.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error("❌ ERRO: VITE_DATABASE_URL não configurada nas variáveis de ambiente.");
+  throw new Error("ERRO: DATABASE_URL não encontrada.");
 }
 
-export const sql = neon(connectionString || "");
+export const sql = neon(connectionString);
