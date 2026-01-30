@@ -1,3 +1,9 @@
+// Contexto de autenticação global da aplicação.
+// Responsável por:
+// - Detectar token de acesso (URL / localStorage) ao montar a app
+// - Validar o token no banco via `sql` (neon)
+// - Preencher `user` e controlar `loading` enquanto a verificação ocorre
+// - Expor `signIn` e `signOut` (implementações mínimas/placeholder)
 import { createContext, useContext, ReactNode, useEffect, useState, useRef } from "react";
 import { sql } from "@/lib/neon";
 
@@ -20,9 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // TRUQUE DE MESTRE: Captura o token IMEDIATAMENTE na montagem do componente.
-  // O useState com função só roda uma vez, no primeiro milissegundo.
-  // Isso garante que pegamos o token antes de qualquer redirecionamento limpar a URL.
+  // Captura imediata do token quando o provider monta.
+  // Explicação: usamos useState com função inicial para ler `window.location.search`
+  // apenas na primeira renderização — isso evita perder o token caso haja
+  // redirects que limpem a query string antes do efeito rodar.
   const [initialToken] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
@@ -36,6 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Função principal que valida o acesso do usuário
+    // Fluxo resumido:
+    // 1) Pega token da inicialização (`initialToken`) ou da URL atual
+    // 2) Se não achar, tenta recuperar do localStorage (backup)
+    // 3) Consulta `access_tokens` para checar validade/uso/expiração
+    // 4) Se válido, carrega usuário em `users` e popula `user` no estado
     async function validarAcesso() {
       try {
         setLoading(true);
@@ -56,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (tokenParaValidar) {
           console.log("🔒 Token detectado:", tokenParaValidar);
 
+          // Verificação no banco: token não usado e com expires_at no futuro
           const tokenValido = await sql`
             SELECT user_id FROM access_tokens 
             WHERE token = ${tokenParaValidar} 
@@ -66,27 +80,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (tokenValido && tokenValido.length > 0) {
             const userId = tokenValido[0].user_id;
+            // Busca os dados essenciais do usuário na tabela `users`
             const userResult = await sql`SELECT id, name, phone FROM users WHERE id = ${userId} LIMIT 1`;
 
             if (userResult.length > 0) {
+              // Preenche o estado global com o usuário autenticado
               console.log("✅ Usuário autenticado:", userResult[0].name);
               setUser({
                 id: String(userResult[0].id),
                 name: userResult[0].name,
                 phone: userResult[0].phone
               });
-              // Limpa o token temporário pois já foi usado com sucesso
+              // Limpa o token temporário pois já foi processado com sucesso
               window.localStorage.removeItem("auth_token_temp");
-            } 
+            }
           } else {
+            // Token inválido/expirado ou já usado
             console.warn("⚠️ Token inválido ou expirado.");
             window.localStorage.removeItem("auth_token_temp");
           }
         } else {
-            console.log("ℹ️ Nenhum token para processar.");
+          // Não há token em lugar nenhum — usuário não autenticado
+          console.log("ℹ️ Nenhum token para processar.");
         }
 
       } catch (error) {
+        // Em caso de erro de rede/DB, logamos para facilitar debug
         console.error("❌ Erro Auth:", error);
       } finally {
         setLoading(false);

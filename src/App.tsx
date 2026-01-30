@@ -18,85 +18,54 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Componente simples que apenas renderiza o conteúdo
-// (Seu Dashboard já trata o caso de 'sem usuário', então mantivemos simples)
+// Componente que protege rotas — aqui é simples porque o Dashboard lida
+// com usuário não autenticado por conta própria. Se quiser autenticação
+// mais rígida, implementar lógica de redirecionamento aqui.
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Componente que engloba todas as rotas da aplicação.
+// Observação importante: nós consultamos `useAuth().loading` para impedir
+// que o roteamento ocorra enquanto o AuthContext ainda está validando o token.
 function AppRoutes() {
-  const { loading } = useAuth(); // 3. Pega o estado de carregamento do AuthContext
+  const { loading } = useAuth(); // pega o estado de verificação do AuthContext
 
-  // 4. BLOQUEIO DE SEGURANÇA:
-  // Enquanto o AuthContext estiver verificando o token/banco,
-  // nós mostramos um spinner e NÃO carregamos as rotas.
-  // Isso impede que o <Navigate> rode e limpe a URL antes da hora.
+  // Enquanto o contexto estiver validando (verificando token no DB), mostramos
+  // um spinner global e NÃO renderizamos as rotas — isso evita redirecionamentos
+  // prematuros que poderiam limpar a URL antes do contexto processar o token.
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <LoadingSpinner className="h-10 w-10 text-primary" />
-        <span className="ml-3 text-muted-foreground animate-pulse">
-          Validando acesso...
-        </span>
+        <span className="ml-3 text-muted-foreground animate-pulse">Validando acesso...</span>
       </div>
     );
   }
 
   return (
     <Routes>
-      {/* Se o usuário acessar a raiz /, redireciona para o dashboard */}
+      {/* Rota raiz redireciona para /dashboard */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      
-      {/* Se o usuário acessar /login (com ou sem token), manda pro dashboard */}
-      {/* O AuthContext já terá capturado o token antes desse redirecionamento acontecer */}
+      {/* /login redireciona para dashboard — o AuthContext já processa token se houver */}
       <Route path="/login" element={<Navigate to="/dashboard" replace />} />
 
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/finances"
-        element={
-          <ProtectedRoute>
-            <FinancesPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/health"
-        element={
-          <ProtectedRoute>
-            <HealthPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/academic"
-        element={
-          <ProtectedRoute>
-            <AcademicPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/schedule"
-        element={
-          <ProtectedRoute>
-            <SchedulePage />
-          </ProtectedRoute>
-        }
-      />
-      
+      {/* Rotas do dashboard e subpáginas */}
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/dashboard/finances" element={<ProtectedRoute><FinancesPage /></ProtectedRoute>} />
+      <Route path="/dashboard/health" element={<ProtectedRoute><HealthPage /></ProtectedRoute>} />
+      <Route path="/dashboard/academic" element={<ProtectedRoute><AcademicPage /></ProtectedRoute>} />
+      <Route path="/dashboard/schedule" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
+
+      {/* Fallback para páginas não encontradas */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
 
+// Entrada principal do app — provê providers (tema, query client, tooltips)
+// e envolve as rotas com o `AuthProvider` para que todo o app tenha acesso
+// ao estado de autenticação.
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
     <QueryClientProvider client={queryClient}>
@@ -105,7 +74,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
-          {/* O AuthProvider envolve o AppRoutes para fornecer o contexto */}
+          {/* AuthProvider envolve as rotas para fornecer `useAuth()` globalmente */}
           <AuthProvider>
             <AppRoutes />
           </AuthProvider>

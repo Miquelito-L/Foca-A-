@@ -5,6 +5,8 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+// Lista de itens do menu principal (usada no header e para determinar o estado ativo)
+// Cada item possui um `name` (texto exibido) e `href` (rota interna do app React Router)
 const navItems = [
   { name: "Visão Geral", href: "/dashboard" },
   { name: "Finanças", href: "/dashboard/finances" },
@@ -14,19 +16,27 @@ const navItems = [
 ];
 
 export function TopNav() {
+  // `location` é usado para saber qual rota está ativa e aplicar estilo
   const location = useLocation();
+  // `useTheme` provê estado do tema (dark/light) e função para alternar
   const { theme, setTheme } = useTheme();
 
   return (
+    // Cabeçalho fixo no topo com blur e borda inferior
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
 
-
-        {/* Logo - Left */}
+        {/*
+          Logo (lado esquerdo):
+          - Imagem carregada de `public/` via path absoluto `/Logo_simbolo_branco.jpg`.
+          - O container (`div`) mantém tamanho fixo `h-9 w-9` e `overflow-hidden`
+            para garantir que ícones maiores não extrapolem a área.
+          - O `span` ao lado é o nome textual do app; manter para SEO/legibilidade.
+        */}
         <Link to="/dashboard" className="flex items-center gap-2">
-          <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-primary">
+          <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-transparent">
             <img
-              src="/logo_simbolo_branco.jpg"
+              src="/Logo_simbolo_branco.jpg"
               alt="Foca.Aí"
               className="h-full w-full object-contain"
             />
@@ -35,7 +45,12 @@ export function TopNav() {
         </Link>
 
 
-        {/* Navigation - Center (hidden on mobile) */}
+        {/*
+          Navegação central (aparece em telas maiores):
+          - `navItems` é mapeado para links.
+          - O item ativo (comparando `location.pathname`) recebe classes especiais.
+          - `motion.div` do framer-motion adiciona micro-interações (hover/tap).
+        */}
         <nav className="hidden md:flex items-center gap-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
@@ -58,7 +73,11 @@ export function TopNav() {
           })}
         </nav>
 
-        {/* Theme Toggle - Right */}
+        {/*
+          Botão de alternância de tema (lado direito):
+          - `Button` com variante `ghost` contém ícones do Lucide.
+          - Usa classes e transições para alternar visual entre Sun/Moon.
+        */}
         <Button
           variant="ghost"
           size="icon"
